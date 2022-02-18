@@ -70,19 +70,19 @@ export default async function getSNXAcceptedAddresses(): Promise<Record<string, 
   console.log('- Collecting addresses')
 
   // collect lyra traders + LPs pre/post regenesis
-  const lyraTraders = await getAllLyraTraders()
-  console.log('--', Object.keys(lyraTraders).length, 'lyra traders')
-  const lyraLPs = await getAllLyraLPs()
-  console.log('--', Object.keys(lyraLPs).length, 'lyra LPs')
+  // const lyraTraders = await getAllLyraTraders()
+  // console.log('--', Object.keys(lyraTraders).length, 'lyra traders')
+  // const lyraLPs = await getAllLyraLPs()
+  // console.log('--', Object.keys(lyraLPs).length, 'lyra LPs')
 
   // split up collection for susd sellers and uniswap LPs pre/post regenesis
-  const { sUSDSellers: preRegenesisSUSDSellers, uniswapLPs: preRegenesisUniswapLPs } =
-    await getSNXPreRegenesisUniswapAddresses()
-  console.log('--', Object.keys(preRegenesisSUSDSellers).length, 'pre-regenesis sUSD sellers')
-  console.log('--', Object.keys(preRegenesisUniswapLPs).length, 'pre-regenesis uniswap LPs')
-  const { sUSDSellers, uniswapLPs } = await getSNXUniswapAcceptedAddresses()
-  console.log('--', Object.keys(sUSDSellers).length, 'post-regenesis sUSD sellers')
-  console.log('--', Object.keys(uniswapLPs).length, 'post-regenesis uniswap LPs')
+  // const { sUSDSellers: preRegenesisSUSDSellers, uniswapLPs: preRegenesisUniswapLPs } =
+  //   await getSNXPreRegenesisUniswapAddresses()
+  // console.log('--', Object.keys(preRegenesisSUSDSellers).length, 'pre-regenesis sUSD sellers')
+  // console.log('--', Object.keys(preRegenesisUniswapLPs).length, 'pre-regenesis uniswap LPs')
+  // const { sUSDSellers, uniswapLPs } = await getSNXUniswapAcceptedAddresses()
+  // console.log('--', Object.keys(sUSDSellers).length, 'post-regenesis sUSD sellers')
+  // console.log('--', Object.keys(uniswapLPs).length, 'post-regenesis uniswap LPs')
 
   const whitelist: Record<string, SNXAcceptedAddress> = {}
 

@@ -5,9 +5,9 @@
   "main": "index.js",
   "scripts": {
     "build": "rimraf ./dist && tsc -p .",
-    "cache-events-and-blocks": "ts-node src/cache/cacheEventsAndBlocks.ts",
+    "cache-blocks-and-timestamps": "ts-node src/cache/cacheBlocksAndTimestamps.ts --env local",
     "sync-rewards": "ts-node src/rewards/index.ts sync",
-    "export-rewards": "ts-node src/rewards/index.ts export",
+    "export-rewards": "ts-node src/rewards/index.ts export snx-staking --env local",
     "export-total-rewards": "ts-node src/rewards/exportTotalRewards.ts",
     "purge-rewards": "ts-node src/rewards/purgeRewards.ts",
     "sync-pool-stats": "ts-node src/pools/syncPoolStats.ts",

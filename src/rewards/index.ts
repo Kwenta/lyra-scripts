@@ -7,6 +7,7 @@ loadArgsAndEnv(process.argv)
 
 const COMMANDS = ['export', 'sync']
 const PROGRAMS = ['all', 'lyra-lp', 'retro-trading', 'trading', 'dai-susd-lp', 'snx-staking']
+
 const command = nullthrows(
   COMMANDS.find(c => c === process.argv[2]),
   'Invalid command: export, sync'

@@ -1,7 +1,6 @@
 import { ethers } from 'ethers'
 import { getSNXDebtSnapshots, getSNXDebtStates } from './getSNXDebtData'
 import { SNXStakingConfig } from './config'
-import { SNXAcceptedAddress } from './getSNXAcceptedAddresses'
 import groupBy from 'lodash/groupBy'
 import findIndex from 'lodash/findIndex'
 
@@ -37,7 +36,6 @@ type SNXStakingEpochs = {
 }
 
 export default async function getSNXDebtEpochs(
-  acceptedAddresses: Record<string, SNXAcceptedAddress>,
   params: SNXStakingConfig
 ): Promise<SNXStakingEpochs> {
   const debtSnapshots = (await getSNXDebtSnapshots()).sort(
@@ -48,7 +46,8 @@ export default async function getSNXDebtEpochs(
 
   // create a debt state to debt snapshot map keyed on account
   const debtStateToDebtSnapshotMap: any = {}
-  debtSnapshots.forEach((debtSnapshot: any) => {
+  debtSnapshots.forEach((debtSnapshot: any, i) => {
+    console.log('***i', i);
     const account = debtSnapshot.account
     let debtStateIndex =
       findIndex(debtStates, (ds: any) => ds.timestamp >= debtSnapshot.timestamp) || debtStates.length - 1
@@ -63,18 +62,7 @@ export default async function getSNXDebtEpochs(
   // create a map of epochs to debtState
   let epochToDebtState: { [key: string]: any } = {}
   let epochIndex = 0
-  let retroEpochTimestamp = params.retroStartDate
   let stakingEpochTimestamp = params.stakingStartDate
-
-  // retro epochs
-  while (retroEpochTimestamp < params.retroEndDate) {
-    let debtStateIndex = findIndex(debtStates, (ds: any) => ds.timestamp > retroEpochTimestamp) - 1
-    const debtState = debtStates[debtStateIndex - 1]
-    epochToDebtState[epochIndex] = debtState
-    epochIndex++
-    retroEpochTimestamp += params.epochDuration
-  }
-
   // staking epochs
   while (stakingEpochTimestamp < params.stakingEndDate) {
     let debtStateIndex = findIndex(debtStates, (ds: any) => ds.timestamp > stakingEpochTimestamp) - 1
@@ -97,16 +85,6 @@ export default async function getSNXDebtEpochs(
   // repair the debtSnapshot data between pre and post-regenesis
   for (let [addressRaw, snapshots] of Object.entries(debtSnapshotsByUser)) {
     const address = ethers.utils.getAddress(addressRaw)
-    const isEligibleAddress =
-      acceptedAddresses[address] &&
-      (acceptedAddresses[address]?.tradedOnLyra ||
-        acceptedAddresses[address]?.wasLyraLP ||
-        acceptedAddresses[address]?.soldSUSD ||
-        acceptedAddresses[address]?.wasUniswapLP)
-
-    if (!isEligibleAddress) {
-      continue
-    }
 
     // if debt snapshots are pre regenesis just fill it in until you see the first post regenesis debt snapshot
     let debtSnapshots = snapshots as DebtSnapshots
@@ -153,11 +131,6 @@ export default async function getSNXDebtEpochs(
       }
       const debtState = epochToDebtState[epoch]
       const debtStateTimestamp = debtState.timestamp
-
-      // if the addresses' activeFrom date is after the debtStateTimestamp we skip
-      if (acceptedAddresses[address]?.activeFrom > debtStateTimestamp) {
-        continue
-      }
 
       // find the first debt snapshot index that has a timestamp smaller than the current debtState timestamp
       // that will be the debt snapshot closest to the debt state

@@ -3,7 +3,7 @@ import sqlite3 from "better-sqlite3";
 import axios from "axios";
 import path from "path";
 import { Deployments, getOVMRpcUrl } from "./index";
-import { getIsPostRegenesis, PRE_REGENESIS_ADD } from "./isPostRegenesis";
+import { PRE_REGENESIS_ADD } from "./isPostRegenesis";
 import console from "console";
 
 export function getBlocksDb(network: string) {
@@ -16,37 +16,31 @@ async function getBlockTimestamp(
   deployment: Deployments,
   isPostRegenesis: boolean,
   blockNumber: number | "latest"
-): Promise<[number, number] | null> {
+): Promise<{ number: number, timestamp: number}> {
   let res;
   while (true) {
+    const url = getOVMRpcUrl(deployment)
+
     try {
-      res = await axios.post(getOVMRpcUrl(deployment), {
+      res = await axios.post(url, {
         jsonrpc: "2.0",
         method: "eth_getBlockByNumber",
         params: [
-          blockNumber == "latest"
-            ? "latest"
-            : "0x" +
-              (
-                blockNumber - (isPostRegenesis ? 0 : PRE_REGENESIS_ADD)
-              ).toString(16),
+          blockNumber == "latest" ? "latest" : "0x" + ( blockNumber - (isPostRegenesis ? 0 : PRE_REGENESIS_ADD)).toString(16),
           false,
         ],
         id: 1,
       });
-      break;
+      if (res.data.result) {
+        const result = {
+          number: parseInt(res.data.result.number, 16),
+          timestamp: parseInt(res.data.result.timestamp, 16)
+        }
+        return result;
+      }
     } catch {
-      console.log(`-- fail fetching block ${blockNumber} timestamp, retrying`);
+      console.error(`-- fail fetching block ${blockNumber} timestamp, retrying. res.data:`, res?.data);
     }
-  }
-  if (res.data.result) {
-    return [
-      parseInt(res.data.result.number, 16) +
-        (isPostRegenesis ? 0 : PRE_REGENESIS_ADD),
-      parseInt(res.data.result.timestamp, 16),
-    ];
-  } else {
-    return null;
   }
 }
 
@@ -64,9 +58,11 @@ async function cacheBlockNumbers(
   const insertStmt = blocksDb.prepare(
     "INSERT INTO blockNums (blockNumber, timestamp) VALUES (?, ?)"
   );
-  const insertMany = blocksDb.transaction((blockNums: any) => {
-    for (const blockNum of blockNums) {
-      insertStmt.run(parseInt(blockNum[0]), blockNum[1]);
+  const insertMany = blocksDb.transaction((blockData: any) => {
+    for (const blockDatum of blockData) {
+      const blockNumber = blockDatum.number;
+      const blockTimestamp = blockDatum.timestamp;
+      insertStmt.run(parseInt(blockNumber), blockTimestamp);
     }
   });
 
@@ -74,29 +70,25 @@ async function cacheBlockNumbers(
     (blocksDb
       .prepare("SELECT MAX(blockNumber) as maxBlock FROM blockNums")
       .get()?.maxBlock || 0) + 1;
-  const maxBlock = await getBlockTimestamp(
+  const maxBlockData = await getBlockTimestamp(
     deployment,
     isPostRegenesis,
     "latest" as any
   );
 
-  console.log({ maxBlock });
+  console.log({ maxBlockData });
 
   if (startBlock < 0 && isPostRegenesis) {
     startBlock = 0;
   }
 
-  console.log(`- Caching block timestamps: [${startBlock}-${maxBlock}]`);
+  console.log(`- Caching block timestamps: [${startBlock}-${maxBlockData.number}]`);
 
-  if (!maxBlock) {
-    throw Error("");
+  if (Object.keys(maxBlockData).length === 0) {
+    console.error('No timestamp nor blocknumber for maxBlock')
   }
-  let endBlock = maxBlock[0];
+  let endBlock = maxBlockData.number;
   const batchSize = 200;
-
-  if (!isPostRegenesis) {
-    endBlock += PRE_REGENESIS_ADD;
-  }
 
   for (let i = startBlock; i < endBlock; i += batchSize) {
     console.log(`- ${i}/${endBlock}`);
@@ -130,7 +122,7 @@ export async function updateBlocksToLatest(
   blocksDb: any,
   deployment: Deployments
 ) {
-  const isPostRegenesis = await getIsPostRegenesis();
+  const isPostRegenesis = true;
 
   await cacheBlockNumbers(blocksDb, isPostRegenesis, deployment);
 
