@@ -3,12 +3,6 @@ import path from 'path'
 import axios from 'axios'
 import { SNXStakingConfig } from './config'
 
-async function getOldDebtDB() {
-  const db = sqlite3(path.join(__dirname, '../../../data/snx-staking/snxDebt-preRegenesis.sqlite'))
-  await createDebtTables(db)
-  return db
-}
-
 async function getDebtDB() {
   const db = sqlite3(path.join(__dirname, '../../../data/snx-staking/snxDebt.sqlite'))
   await createDebtTables(db)
@@ -65,7 +59,6 @@ async function selectMaxBlockFromDebtSnapshots(db: any) {
 }
 
 export async function syncSNXDebtSnapshots(params: SNXStakingConfig) {
-  const oldData = await selectAllFromDebtSnapshots(await getOldDebtDB())
   const db = await getDebtDB()
 
   let result: any[] = await selectAllFromDebtSnapshots(db)
@@ -74,19 +67,19 @@ export async function syncSNXDebtSnapshots(params: SNXStakingConfig) {
   let startBlock = await selectMaxBlockFromDebtSnapshots(db)
 
   while (true) {
-    const res = await axios.post('https://api.thegraph.com/subgraphs/name/synthetixio-team/optimism-issuance', {
+    const res = await axios.post('https://api.thegraph.com/subgraphs/name/synthetixio-team/optimism-main', {
       query: `
-    query DebtSnapshots {
-      debtSnapshots(first: 1000, where: {block_gt: ${startBlock}, timestamp_lte: ${params.stakingEndDate}}, orderBy: block) {
-        id
-        block
-        timestamp
-        account
-        balanceOf
-        collateral
-        debtBalanceOf
-      }
-    }`,
+        query DebtSnapshots {
+          debtSnapshots(first: 1000, where: {block_gt: ${startBlock}, timestamp_lte: ${params.stakingEndDate}}, orderBy: block) {
+            id
+            block
+            timestamp
+            account
+            balanceOf
+            collateral
+            debtBalanceOf
+          }
+        }`,
     })
     const data = res.data?.data?.debtSnapshots || []
     result = result.concat(...data)
@@ -97,13 +90,16 @@ export async function syncSNXDebtSnapshots(params: SNXStakingConfig) {
     }
   }
 
-  return [...oldData, ...result]
+  return [
+    ...result
+  ]
 }
 
 export async function getSNXDebtSnapshots() {
-  const oldData = await selectAllFromDebtSnapshots(await getOldDebtDB())
   const newData = await selectAllFromDebtSnapshots(await getDebtDB())
-  return [...oldData, ...newData]
+  return [
+    ...newData
+  ]
 }
 
 async function insertToDebtStates(db: any, data: any[]) {
@@ -128,23 +124,22 @@ async function selectAllDebtStates(db: any) {
 }
 
 export async function syncSNXDebtStates(params: SNXStakingConfig) {
-  const oldData = await selectAllDebtStates(await getOldDebtDB())
   const db = await getDebtDB()
   let result = await selectAllDebtStates(db)
 
   while (true) {
-    const maxTimestamp = await selectMaxTimestampFromDebtStates(db)
+    const prevMaxTimestamp = await selectMaxTimestampFromDebtStates(db)
     const res = await axios.post('https://api.thegraph.com/subgraphs/name/synthetixio-team/optimism-global-debt', {
       query: `
-      query DebtState {
-        debtStates(first: 1000, orderBy: timestamp, where: {timestamp_gt: ${maxTimestamp}, timestamp_lte: ${params.stakingEndDate}}) {
-          id
-          timestamp
-          debtEntry
-          totalIssuedSynths
-          debtRatio
-        }
-      }`,
+        query DebtState {
+          debtStates(first: 1000, orderBy: timestamp, where: {timestamp_gt: ${prevMaxTimestamp}, timestamp_lte: ${params.stakingEndDate}}) {
+            id
+            timestamp
+            debtEntry
+            totalIssuedSynths
+            debtRatio
+          }
+        }`,
     })
     const data = res.data?.data?.debtStates || []
     result = result.concat(...data)
@@ -154,11 +149,14 @@ export async function syncSNXDebtStates(params: SNXStakingConfig) {
     }
   }
 
-  return [...oldData, ...result]
+  return [
+    ...result
+  ]
 }
 
 export async function getSNXDebtStates() {
-  const oldData = await selectAllDebtStates(await getOldDebtDB())
   const newData = await selectAllDebtStates(await getDebtDB())
-  return [...oldData, ...newData]
+  return [
+    ...newData
+  ]
 }

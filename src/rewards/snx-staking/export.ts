@@ -4,14 +4,12 @@ import getSNXStakingRewards from "./getSNXStakingRewards";
 
 const OUT_FILE = "./out/snx-staking.csv";
 
-export default async function updateRetroTradingRewards() {
+export default async function updateSNXStakingRewards() {
   const statsPerUser = await getSNXStakingRewards(CONFIG);
-
   console.log("- Exporting", Object.keys(statsPerUser).length, "stakers");
 
-  const rows = Object.values(statsPerUser).map(({ conditions, ...stats }) => {
+  const rows = Object.values(statsPerUser).map(({ ...stats }) => {
     return {
-      ...conditions,
       ...stats,
     };
   });

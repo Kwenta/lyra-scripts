@@ -1,40 +1,24 @@
 import getSNXDebtEpochs from './getSNXDebtEpochs'
 import { SNXStakingConfig } from './config'
-import getSNXAcceptedAddresses from './getSNXAcceptedAddresses'
 import { ethers } from 'ethers'
 
 type SNXUserStats = {
   address: string
-  conditions: {
-    tradedOnLyra: boolean
-    wasLyraLP: boolean
-    soldSUSD: boolean
-    wasUniswapLP: boolean
-  }
   totalDebt: number
   totalDebtShare: number
-  activeFrom: number | null
   mostRecentEpoch: number
   stakingRewards: number
   retroRewards: number
 }
 
 export default async function getSNXStakingRewards(params: SNXStakingConfig): Promise<Record<string, SNXUserStats>> {
-  const acceptedAddresses = await getSNXAcceptedAddresses()
-
   console.log('- Calculating epochs')
-  const epochs = await getSNXDebtEpochs(acceptedAddresses, params)
-  console.log('--', Object.keys(epochs).length, 'epochs')
 
-  // calculate the rewards each staker gets in the retro period
-  const retroRewardPerEpoch =
-    params.retroRewardAmount / ((params.retroEndDate - params.retroStartDate) / params.epochDuration)
+  const epochs = await getSNXDebtEpochs(params)
 
   // calculate the rewards each staker gets in the staking period
   const stakingRewardPerEpoch =
     params.stakingRewardAmount / ((params.stakingEndDate - params.stakingStartDate) / params.epochDuration)
-
-  const lastRetroEpochIndex = (params.retroEndDate - params.retroStartDate) / params.epochDuration - 1
 
   const debtTotals: Record<string, number> = {}
   const userDebtTotals: Record<string, Record<string, number>> = {}
@@ -47,6 +31,18 @@ export default async function getSNXStakingRewards(params: SNXStakingConfig): Pr
     if (!previousDebtState) {
       previousDebtState = currentDebtState
     }
+    /*
+      ***debtSnapshots {
+        '0x828A30F9bfFf6726765b5C7eAc213B5Ad22fbFb8': {
+          id: '0x94bd4b68746155b1a6824176c5d79258e40cc5ca680380f60365bb25a3b03273-2',
+          block: 3107035,
+          timestamp: 1633992583,
+          account: '0x828a30f9bfff6726765b5c7eac213b5ad22fbfb8',
+          balanceOf: 1658.8996661458589,
+          collateral: 1757.0715413313342,
+          debtBalanceOf: 2790.890846367308
+        },
+    */
     for (const addressRaw in debtSnapshots) {
       const address = ethers.utils.getAddress(addressRaw)
       const debtSnapshot = debtSnapshots[address]
@@ -71,19 +67,11 @@ export default async function getSNXStakingRewards(params: SNXStakingConfig): Pr
       const totalDebt = debtTotals[epoch]
       const totalDebtShare = userDebtCurrentEpoch / totalDebt
 
-      const isRetro = parseInt(epoch) <= lastRetroEpochIndex
+      const isRetro = false;
 
       if (!statsPerUser[address]) {
-        const user = acceptedAddresses[address]
         statsPerUser[address] = {
-          address: user.address,
-          conditions: {
-            tradedOnLyra: !!user?.tradedOnLyra,
-            wasLyraLP: !!user?.wasLyraLP,
-            soldSUSD: !!user?.soldSUSD,
-            wasUniswapLP: !!user?.wasUniswapLP,
-          },
-          activeFrom: user?.activeFrom ?? null,
+          address: address,
           mostRecentEpoch: parseInt(epoch),
           stakingRewards: 0,
           retroRewards: 0,
@@ -92,7 +80,8 @@ export default async function getSNXStakingRewards(params: SNXStakingConfig): Pr
         }
       }
 
-      const rewards = (isRetro ? retroRewardPerEpoch : stakingRewardPerEpoch) * totalDebtShare
+      const rewards = stakingRewardPerEpoch * totalDebtShare
+
       if (isRetro) {
         statsPerUser[address].retroRewards += rewards
       } else {
@@ -104,17 +93,11 @@ export default async function getSNXStakingRewards(params: SNXStakingConfig): Pr
     }
   }
 
-  const totalRetroRewards = Object.values(statsPerUser).reduce((sum, stats) => stats.retroRewards + sum, 0)
   const totalStakingRewards = Object.values(statsPerUser).reduce((sum, stats) => stats.stakingRewards + sum, 0)
-
-  console.log('- Retro')
-  console.log('--', (params.retroEndDate - params.retroStartDate) / params.epochDuration, 'epochs')
-  console.log('--', retroRewardPerEpoch, 'lyra per epoch')
-  console.log('--', totalRetroRewards, '/', params.retroRewardAmount, 'rewards distributed')
 
   console.log('- Staking')
   console.log('--', (params.stakingEndDate - params.stakingStartDate) / params.epochDuration, 'epochs')
-  console.log('--', stakingRewardPerEpoch, 'lyra per epoch')
+  console.log('--', stakingRewardPerEpoch, 'kwenta per epoch')
   console.log('--', totalStakingRewards, '/', params.stakingRewardAmount, 'rewards distributed')
 
   return statsPerUser

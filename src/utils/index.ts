@@ -1,8 +1,8 @@
 import dotenv from "dotenv";
 import {ethers} from "ethers";
 
-export type Deployments = "kovan-ovm" | "mainnet-ovm" | "mainnet-ovm-old";
-export const deployments: Deployments[] = ['kovan-ovm', 'mainnet-ovm', 'mainnet-ovm-old']
+export type Deployments = "mainnet-ovm";
+export const deployments: Deployments[] = ['mainnet-ovm']
 
 export async function sleep(ms: number) {
   return new Promise((resolve) => {
